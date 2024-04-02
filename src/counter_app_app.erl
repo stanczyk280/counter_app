@@ -12,7 +12,8 @@
 start(_StartType, _StartArgs) ->
     Routes = cowboy_router:compile([
         {'_', [
-            {"/router", router_handler, []}
+            {"/router", router_handler, []},
+            {"/ws", ws_handler, []}
         ]}
     ]),
     cowboy:start_clear(websockets_cowboy_listener, [{port, 8080}], #{ env => #{ dispatch => Routes }}),
