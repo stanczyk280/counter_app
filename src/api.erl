@@ -15,7 +15,6 @@ init() ->
     case catch mnesia:create_table(user_data, [{disc_copies, [node()]}, {attributes, record_info(fields, user_data)}]) of
          {'aborted',{already_exists,user_data}} -> "Table already exists, starting without creating.";
          {'aborted',Error} -> {error, Error};
-         Other -> Other
     end.
 
 post_user(UserId, Counter, Value) ->
@@ -43,7 +42,6 @@ get_users() ->
         end,
     {atomic, _Results} = mnesia:transaction(Query).
 
-
 list_users() -> 
     mnesia:dirty_all_keys(user_data).
 
@@ -55,7 +53,7 @@ put_user(UserId, DataToUpdate) ->
             UpdateFields = parse_update_fields(DataToUpdate),
             case UpdateFields of
                 {ok, Counter, Value} ->
-                    UpdateFun = fun() ->
+                    Query = fun() ->
                         {user_data, _, OldCounter, OldValue} = User,
                         NewCounter = case Counter of
                             undefined -> OldCounter;
@@ -67,7 +65,7 @@ put_user(UserId, DataToUpdate) ->
                         end,
                         mnesia:dirty_write({user_data, UserId, NewCounter, NewValue})
                     end,
-                    case mnesia:transaction(UpdateFun) of
+                    case mnesia:transaction(Query) of
                         {atomic, ok} -> {ok, "User data updated successfully"};
                         {aborted, Reason} -> {error, Reason}
                     end;
@@ -85,7 +83,6 @@ delete_user(UserId) ->
                 end,
             {atomic, _Results} = mnesia:transaction(Query)
         end.
-
 
 %======HELPERS=======%
 parse_update_fields(DataToUpdate) ->
