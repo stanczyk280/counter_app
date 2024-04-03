@@ -5,10 +5,11 @@
 -export([websocket_handle/2, websocket_info/2, websocket_terminate/3]).
 
 init(Req, State) ->
-    Opts = #{idle_timeout => 360000},
+    Opts = #{idle_timeout => 6000},
     {cowboy_websocket, Req, State, Opts}.
 
 websocket_init(_TransportName) ->
+    logger:info("Websocket connection initiated."),
     api:init(),
     {ok, undefined}.
 
@@ -103,7 +104,7 @@ handle_command({[{<<"jsonrpc">>, <<"2.0">>},
     {[{text, DataJson}], State};
 
 handle_command(_, State) ->
-    io:format("Unknown command~n"),
+    logger:info("Invalid command."),
     {ok, State}.
 
 websocket_info({text, _Msg} = Frame, State)->
@@ -113,5 +114,5 @@ websocket_info(_Info, State)->
      {ok,State}.
 
 websocket_terminate(_Reason,_Req,_State)->
-     io:format("Terminating websocket connection~n~p", [_Reason]),
+    logger:info("Terminating websocket connection~n~p", [_Reason]),
      ok.
