@@ -27,7 +27,7 @@ handle_command({[{<<"jsonrpc">>, <<"2.0">>},
                  {<<"params">>, {[{<<"UserId">>, UserId}]}},
                  {<<"id">>, Id}]}, State) ->
     UserIdStr = binary_to_list(UserId),
-    Response = api:get_user(binary_to_list(UserId)),
+    Response = api:get_user(UserIdStr),
     [{_Type, _, Counter, Value}] = Response,
     Result = {[{<<"UserId">>, UserId},{<<"Counter">>, list_to_binary(Counter)}, {<<"Value">>, Value}]},
     DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, Result}, {<<"id">>, Id}]}),
