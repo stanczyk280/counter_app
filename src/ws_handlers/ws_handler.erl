@@ -4,7 +4,7 @@
 -export([websocket_handle/2, websocket_info/2, websocket_terminate/3]).
 
 init(Req, State) ->
-    Opts = #{idle_timeout => 60000},
+    Opts = #{idle_timeout => 360000},
     {cowboy_websocket, Req, State, Opts}.
 
 websocket_init(_TransportName) ->
@@ -30,14 +30,49 @@ handle_command({[{<<"command">>, <<"get_user">>},
     DataJson = jiffy:encode({[{<<"UserId">>, UserIdStr},{<<"Counter">>, Counter}, {<<"Value">>, Value}]}),
     {[{text, DataJson}], State};
 
+%command = {"command":"get_users"}
 handle_command({[{<<"command">>, <<"get_users">>}]},State) ->
     io:format("Finding all users"),
     {atomic, Response} = api:get_users(),
     io:format("~n~p",[Response]),
     {ok, State};
 
-%%TO DO%%
-%rewrite rest of the methods from the old ws handler
+%command = {"command":"list_users"}
+handle_command({[{<<"command">>, <<"list_users">>}]}, State) ->
+    io:format("Listing all users"),
+    Users = api:list_users(),
+    io:format("~n~p",[Users]),
+    {ok, State};
+
+%command = {"command":"post_user", "UserId":"usertest", "Counter":"C2", "Value":15}
+handle_command({[{<<"command">>, <<"post_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}, State) ->
+    io:format("Creating user with ID: ~p~n", [UserId]),
+    api:post_user(binary_to_list(UserId), Counter, Value),
+    {ok,State};
+
+%command = {"command":"delete_user", "UserId":"user1"}
+handle_command({[{<<"command">>, <<"delete_user">>}, {<<"UserId">>, UserId}]}, State) ->
+    io:format("Deleting user with ID: ~p~n", [UserId]),
+    api:delete_user(binary_to_list(UserId)),
+    {ok,State};
+
+%command = {"command":"put_user", "UserId":"usertest", "Value":1}
+handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Value">>, Value}]}, State) ->
+    io:format("Updating user with ID: ~p~n", [UserId]),
+    api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Value">>, Value}]),
+    {ok,State};
+
+%command = {"command":"put_user", "UserId":"usertest", "Counter":"C12"}
+handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}]}, State) ->
+    io:format("Updating user with ID: ~p~n", [UserId]),
+    api:put_user_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]),
+    {ok,State};
+
+%command = {"command":"put_user", "UserId":"usertest", "Counter":"C12", "Value":1}
+handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}, State) ->
+    io:format("Updating user with ID: ~p~n", [UserId]),
+    api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]),
+    {ok,State};
 
 handle_command(_, State) ->
     io:format("Unknown command~n"),
