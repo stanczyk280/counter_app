@@ -1,4 +1,5 @@
 -module(ws_handler).
+-include_lib("kernel/include/logger.hrl").
 
 -export([init/2, websocket_init/1]).
 -export([websocket_handle/2, websocket_info/2, websocket_terminate/3]).
@@ -12,72 +13,98 @@ websocket_init(_TransportName) ->
     {ok, undefined}.
 
 websocket_handle({text, Msg}, State) ->
-    io:format("Received message: ~p~n", [Msg]),
-    DataDecoded = jiffy:decode(Msg),
-    handle_command(DataDecoded, State);
+    logger:info("Received message: ~p~n", [Msg]),
+    JsonDataDecoded = jiffy:decode(Msg),
+    handle_command(JsonDataDecoded, State);
+
 
 websocket_handle(_Data, State) ->
     {ok, State}.
 
-%command = {"command":"get_user", "UserId":"user1"}
-handle_command({[{<<"command">>, <<"get_user">>}, 
-                 {<<"UserId">>, UserId}]}, State) ->
+%command = {"jsonrpc":"2.0", "method":"get_user", "params":{"UserId":"usertest"}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"get_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}]}},
+                 {<<"id">>, Id}]}, State) ->
     UserIdStr = binary_to_list(UserId),
-    io:format("Finding user with ID: ~p~n", [UserIdStr]),
-    {atomic, Response} = api:get_user(UserIdStr),
-    io:format("Response: ~p~n", [Response]),
+    Response = api:get_user(binary_to_list(UserId)),
     [{_Type, _, Counter, Value}] = Response,
-    DataJson = jiffy:encode({[{<<"UserId">>, UserIdStr},{<<"Counter">>, Counter}, {<<"Value">>, Value}]}),
+    Result = {[{<<"UserId">>, UserId},{<<"Counter">>, list_to_binary(Counter)}, {<<"Value">>, Value}]},
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, Result}, {<<"id">>, Id}]}),
+    {reply, {text, DataJson}, State};
+
+%command = {"jsonrpc":"2.0", "method":"get_users", "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"get_users">>}, 
+                 {<<"id">>, Id}]}, State) ->
+    {atomic, Response} = api:get_users(),
+    Result = lists:map(fun(User) -> 
+        {[{<<"UserId">>, element(2, User)}, 
+          {<<"Counter">>, element(3, User)}, 
+          {<<"Value">>, element(4, User)}]} 
+    end, Response),
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, Result}, {<<"id">>, Id}]}),
     {[{text, DataJson}], State};
 
-%command = {"command":"get_users"}
-handle_command({[{<<"command">>, <<"get_users">>}]},State) ->
-    io:format("Finding all users"),
-    {atomic, Response} = api:get_users(),
-    io:format("~n~p",[Response]),
-    {ok, State};
-
-%command = {"command":"list_users"}
-handle_command({[{<<"command">>, <<"list_users">>}]}, State) ->
-    io:format("Listing all users"),
+%command = {"jsonrpc":"2.0", "method":"list_users", "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"list_users">>}, 
+                 {<<"id">>, Id}]}, State) ->
     Users = api:list_users(),
-    io:format("~n~p",[Users]),
-    {ok, State};
+    Result = lists:map(fun(User) -> 
+        {[{<<"UserId">>, User}]} 
+    end, Users),
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, Result}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
-%command = {"command":"post_user", "UserId":"usertest", "Counter":"C2", "Value":15}
-handle_command({[{<<"command">>, <<"post_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}, State) ->
-    io:format("Creating user with ID: ~p~n", [UserId]),
+%command = {"jsonrpc":"2.0", "method":"post_user", "params":{"UserId":"usertest", "Counter":"C2", "Value":15}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"post_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}},
+                 {<<"id">>, Id}]}, State) ->
     api:post_user(binary_to_list(UserId), Counter, Value),
-    {ok,State};
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User created">>}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
-%command = {"command":"delete_user", "UserId":"user1"}
-handle_command({[{<<"command">>, <<"delete_user">>}, {<<"UserId">>, UserId}]}, State) ->
-    io:format("Deleting user with ID: ~p~n", [UserId]),
+%command = {"jsonrpc":"2.0", "method":"delete_user", "params":{"UserId":"user1"}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"delete_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}]}},
+                 {<<"id">>, Id}]}, State) ->
     api:delete_user(binary_to_list(UserId)),
-    {ok,State};
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User deleted">>}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
-%command = {"command":"put_user", "UserId":"usertest", "Value":1}
-handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Value">>, Value}]}, State) ->
-    io:format("Updating user with ID: ~p~n", [UserId]),
+%command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Value":1}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"put_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Value">>, Value}]}},
+                 {<<"id">>, Id}]}, State) ->
     api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Value">>, Value}]),
-    {ok,State};
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
-%command = {"command":"put_user", "UserId":"usertest", "Counter":"C12"}
-handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}]}, State) ->
-    io:format("Updating user with ID: ~p~n", [UserId]),
+%command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Counter":"C12"}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"put_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]}},
+                 {<<"id">>, Id}]}, State) ->
     api:put_user_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]),
-    {ok,State};
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
-%command = {"command":"put_user", "UserId":"usertest", "Counter":"C12", "Value":1}
-handle_command({[{<<"command">>, <<"put_user">>}, {<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}, State) ->
-    io:format("Updating user with ID: ~p~n", [UserId]),
+%command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Counter":"C12", "Value":1}, "id":1}
+handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
+                 {<<"method">>, <<"put_user">>}, 
+                 {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}},
+                 {<<"id">>, Id}]}, State) ->
     api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]),
-    {ok,State};
+    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+    {[{text, DataJson}], State};
 
 handle_command(_, State) ->
     io:format("Unknown command~n"),
     {ok, State}.
-
 
 websocket_info({text, _Msg} = Frame, State)->
      {[Frame],State};
@@ -86,4 +113,5 @@ websocket_info(_Info, State)->
      {ok,State}.
 
 websocket_terminate(_Reason,_Req,_State)->
+     io:format("Terminating websocket connection~n~p", [_Reason]),
      ok.
