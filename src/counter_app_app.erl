@@ -13,7 +13,8 @@ start(_StartType, _StartArgs) ->
     Routes = cowboy_router:compile([
         {'_', [
             {"/router", router_handler, []},
-            {"/users", users_handler, []},
+            {"/users/:id", get_handler, []},
+            {"/users", post_put_handler, []},
             {"/ws", ws_handler, []}
         ]}
     ]),
