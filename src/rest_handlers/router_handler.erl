@@ -21,7 +21,7 @@ handle_request(<<"GET">>, Req) ->
             [] ->
                 logger:info("User with ID ~p not found.", [UserId]),
                 cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
-            _ -> 
+            [_User] -> 
                 [{_Type, _, Counter, Value}] = Response,
             DataJson = jiffy:encode({[{<<"UserId">>, UserId}, 
                                     {<<"Counter">>, list_to_binary(Counter)}, 
@@ -42,8 +42,15 @@ handle_request(<<"POST">>, Req0) ->
         {[ {<<"UserId">>, UserIdBin},{<<"Counter">>, CounterBin},{<<"Value">>, Value}]} = DecodedData,
         UserId = binary_to_list(UserIdBin),
         Counter = binary_to_list(CounterBin),
-        api:post_user(UserId, Counter, Value),
-        cowboy_req:reply(201,#{},<<"User created">> ,Req)
+        case api:get_user(UserId) of
+            [] ->
+                logger:info("Attempting to post user: ~p, ~p, ~p", [UserId, Counter, Value]),
+                api:post_user(UserId, Counter, Value),
+                cowboy_req:reply(201, #{}, <<"User created">> ,Req);
+            [_User] ->
+                logger:info("User with ID ~p already exists.", [UserId]),
+                cowboy_req:reply(409, #{}, <<"User already exists.">>, Req)
+        end
     end;
 
 handle_request(<<"PUT">>, Req0) ->
@@ -56,10 +63,16 @@ handle_request(<<"PUT">>, Req0) ->
         [{DataBin, _}] = Body,
         {DecodedData} = jiffy:decode(DataBin),
         UserId = proplists:get_value(<<"UserId">>, DecodedData),
-        logger:info("Attempting to update user with ID ~p and Data: ~p.", [UserId, DecodedData]),
-        api:put_user(binary_to_list(UserId), DecodedData),
-        logger:info("User with ID ~p updated.", [UserId]),
-        cowboy_req:reply(201,#{},<<"User updated">> ,Req)
+        case api:get_user(binary_to_list(UserId)) of
+            [] ->
+                logger:info("User with ID ~p not found.", [UserId]),
+                cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
+            [_User] ->
+                logger:info("Attempting to update user with ID ~p and Data: ~p.", [UserId, DecodedData]),
+                api:put_user(binary_to_list(UserId), DecodedData),
+                logger:info("User with ID ~p updated.", [UserId]),
+                cowboy_req:reply(201,#{},<<"User updated">> ,Req)
+        end
     end;
 
 handle_request(<<"DELETE">>, Req) ->
@@ -74,11 +87,12 @@ handle_request(<<"DELETE">>, Req) ->
             [] ->
                 logger:info("User with ID ~p not found.", [UserId]),
                 cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
-            _ -> 
+            [_User] -> 
                 api:delete_user(binary_to_list(UserId)),
                 cowboy_req:reply(200, #{}, <<"User deleted.">>, Req)
         end
     end;
+
 handle_request(_,Req) ->
   cowboy_req:reply(405, Req).
 
