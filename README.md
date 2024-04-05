@@ -3,6 +3,9 @@ counter_app
 
 An OTP application
 
+Simple app to demonstrate usage of mnesia with cowboy: classic curl, RESTapi and websockets.
+
+
 curl messages examples:
 -----
 GET:
