@@ -25,7 +25,7 @@ from_json(Req, State) ->
         _ -> {halt, Req, State}
     end.
 
-%POST -H "Content-Type: application/json" -d '{"UserId":"user123", "Counter":"C1", "Value":10}' "http://localhost:8080/users"
+%POST -H "Content-Type: application/json" -d '{"UserId":"user123", "Counter":"C1", "Value":10}' "http://localhost:8080/user"
 post_to_json(Req, State) ->
     case cowboy_req:has_body(Req) of
         false ->
@@ -47,7 +47,7 @@ post_to_json(Req, State) ->
                 end
         end.
 
-%curl -X PUT -H "Content-Type: application/json" -d '{"UserId": "user123","Counter":"C2" ,"Value": 40}' "http://localhost:8080/users"
+%curl -X PUT -H "Content-Type: application/json" -d '{"UserId": "user123","Counter":"C2" ,"Value": 40}' "http://localhost:8080/user"
 put_to_json(Req, State) ->
 
     case cowboy_req:has_body(Req) of
