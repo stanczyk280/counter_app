@@ -3,7 +3,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 -export([init/2]).
--export([content_types_provided/2]).
+-export([content_types_provided/2, allowed_methods/2]).
 -export([get_to_html/2]).
 -export([get_to_json/2]).
 
@@ -11,6 +11,9 @@
 init(Req, Opts) ->
     api:init(),
     {cowboy_rest, Req, Opts}.
+
+allowed_methods(Req, State) ->
+    {[<<"GET">>], Req, State}.
 
 content_types_provided(Req, State) ->
     {[
@@ -36,13 +39,22 @@ get_to_html(Req, State) ->
 %curl -X GET -H "Accept: application/json" "http://localhost:8080/users/usertest"
 get_to_json(Req, State) ->
     UserId = cowboy_req:binding(id, Req),
-    logger:debug("User ID: ~p", [UserId]),
-    Response = api:get_user(binary_to_list(UserId)),
-    logger:debug("Response: ~p", [Response]),
-    case Response of
-        [] ->
-            cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
-        [{_Type, _, Counter, Value}] ->
-            DataJson = jiffy:encode({[{<<"UserId">>, UserId}, {<<"Counter">>, list_to_binary(Counter)}, {<<"Value">>, Value}]}),
-            {DataJson, Req, State}
+    case UserId of
+        undefined ->
+            {atomic, Users} = api:get_users(),
+            logger:debug("Users: ~p", [Users]),
+            JsonUsers = lists:map(fun({user_data, Id, Counter, Value}) ->
+                #{<<"UserId">> => list_to_binary(Id), <<"Counter">> => list_to_binary(Counter), <<"Value">> => Value}
+            end, Users),
+            Body = jiffy:encode(JsonUsers),
+            {Body, Req, State};
+        _ ->
+            Response = api:get_user(binary_to_list(UserId)),
+            case Response of
+                [] ->
+                    cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
+                [{_Type, _, Counter, Value}] ->
+                    DataJson = jiffy:encode({[{<<"UserId">>, UserId}, {<<"Counter">>, list_to_binary(Counter)}, {<<"Value">>, Value}]}),
+                    {DataJson, Req, State}
+            end
     end.

@@ -14,7 +14,8 @@ start(_StartType, _StartArgs) ->
         {'_', [
             {"/router", router_handler, []},
             {"/users/:id", get_handler, []},
-            {"/users", post_put_handler, []},
+            {"/users", get_handler, []},
+            {"/user", post_put_handler, []},
             {"/ws", ws_handler, []}
         ]}
     ]),
