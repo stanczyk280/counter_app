@@ -43,6 +43,6 @@ get_to_json(Req, State) ->
         [] ->
             cowboy_req:reply(404, #{}, <<"User not found.">>, Req);
         [{_Type, _, Counter, Value}] ->
-            DataJson = jiffy:encode({[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}),
+            DataJson = jiffy:encode({[{<<"UserId">>, UserId}, {<<"Counter">>, list_to_binary(Counter)}, {<<"Value">>, Value}]}),
             {DataJson, Req, State}
     end.
