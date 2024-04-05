@@ -63,45 +63,86 @@ handle_command({[{<<"jsonrpc">>, <<"2.0">>},
                  {<<"method">>, <<"post_user">>}, 
                  {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}},
                  {<<"id">>, Id}]}, State) ->
-    api:post_user(binary_to_list(UserId), Counter, Value),
-    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User created">>}, {<<"id">>, Id}]}),
-    {[{text, DataJson}], State};
+                    case api:get_user(binary_to_list(UserId)) of
+                        [] ->
+                            logger:info("Attempting to post user: ~p, ~p, ~p", [binary_to_list(UserId), Counter, Value]),
+                            api:post_user(binary_to_list(UserId), Counter, Value),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User created">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State};
+                        [_User] ->
+                            logger:info("User with ID ~p already exists.", [binary_to_list(UserId)]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User already exists">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State}
+                    end;                
+                    
 
 %command = {"jsonrpc":"2.0", "method":"delete_user", "params":{"UserId":"user1"}, "id":1}
 handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
                  {<<"method">>, <<"delete_user">>}, 
                  {<<"params">>, {[{<<"UserId">>, UserId}]}},
                  {<<"id">>, Id}]}, State) ->
-    api:delete_user(binary_to_list(UserId)),
-    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User deleted">>}, {<<"id">>, Id}]}),
-    {[{text, DataJson}], State};
+                    case api:get_user(binary_to_list(UserId)) of
+                        [] ->
+                            logger:info("User with ID ~p not found.", [binary_to_list(UserId)]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User not found">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State};
+                        [_User] ->
+                            logger:info("Attempting to delete user: ~p", [binary_to_list(UserId)]),
+                            api:delete_user(UserId),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User deleted">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State}
+                    end;
 
 %command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Value":1}, "id":1}
 handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
                  {<<"method">>, <<"put_user">>}, 
                  {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Value">>, Value}]}},
                  {<<"id">>, Id}]}, State) ->
-    api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Value">>, Value}]),
-    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
-    {[{text, DataJson}], State};
+                    case api:get_user(binary_to_list(UserId)) of
+                        [] ->
+                            logger:info("User with ID ~p not found.", [binary_to_list(UserId)]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User not found">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State};
+                        [_User] ->
+                            logger:info("Attempting to update user: ~p, ~p", [binary_to_list(UserId), Value]),
+                            api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Value">>, Value}]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State}
+                    end;
 
 %command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Counter":"C12"}, "id":1}
 handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
                  {<<"method">>, <<"put_user">>}, 
                  {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]}},
                  {<<"id">>, Id}]}, State) ->
-    api:put_user_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]),
-    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
-    {[{text, DataJson}], State};
+                    case api:get_user(binary_to_list(UserId)) of
+                        [] ->
+                            logger:info("User with ID ~p not found.", [binary_to_list(UserId)]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User not found">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State};
+                        [_User] ->
+                            logger:info("Attempting to update user: ~p, ~p", [binary_to_list(UserId), Counter]),
+                            api:put_user_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State}
+                    end;
 
 %command = {"jsonrpc":"2.0", "method":"put_user", "params":{"UserId":"usertest", "Counter":"C12", "Value":1}, "id":1}
 handle_command({[{<<"jsonrpc">>, <<"2.0">>}, 
                  {<<"method">>, <<"put_user">>}, 
                  {<<"params">>, {[{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]}},
                  {<<"id">>, Id}]}, State) ->
-    api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]),
-    DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
-    {[{text, DataJson}], State};
+                    case api:get_user(binary_to_list(UserId)) of
+                        [] ->
+                            logger:info("User with ID ~p not found.", [binary_to_list(UserId)]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User not found">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State};
+                        [_User] ->
+                            logger:info("Attempting to update user: ~p, ~p, ~p", [binary_to_list(UserId), Counter, Value]),
+                            api:put_user(binary_to_list(UserId), [{<<"UserId">>, UserId}, {<<"Counter">>, Counter}, {<<"Value">>, Value}]),
+                            DataJson = jiffy:encode({[{<<"jsonrpc">>, <<"2.0">>}, {<<"result">>, <<"User updated">>}, {<<"id">>, Id}]}),
+                            {[{text, DataJson}], State}
+                    end;
 
 handle_command(_, State) ->
     logger:info("Invalid command."),
